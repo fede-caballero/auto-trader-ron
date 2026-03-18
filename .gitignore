@@ -1,0 +1,36 @@
+# ──────────── Python ────────────
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# ──────────── Secrets ────────────
+.env
+*.pem
+*.key
+
+# ──────────── Data (Binance downloads) ────────────
+data/raw/
+data/processed/
+
+# ──────────── Model Weights (too large for git) ────────────
+models/champion_model.pth
+models/best_model.pth
+*.pth
+
+# ──────────── Logs & Paper Trading State ────────────
+logs/
+.best_metric_cache
+
+# ──────────── OS Junk ────────────
+.DS_Store
+Thumbs.db
+*~
+
+# ──────────── IDE ────────────
+.vscode/
+.idea/
+*.swp
+*.swo
