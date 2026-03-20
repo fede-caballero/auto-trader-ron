@@ -12,8 +12,13 @@ import os
 import sys
 import csv
 import json
-import logging
+import requests
+from dotenv import load_dotenv
 from datetime import datetime, timezone
+
+# Load environment variables
+load_dotenv()
+WEBHOOK_URL = os.getenv("N8N_WEBHOOK_URL")
 
 # Ensure project root is in path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -120,6 +125,26 @@ def check_stop_or_take_profit(position, current_price):
     return False, pnl_pct, None
 
 
+def send_webhook_notification(action, symbol, price, details):
+    """Send an HTTP POST notification to the configured n8n Webhook."""
+    if not WEBHOOK_URL:
+        return
+    
+    payload = {
+        "action": action,
+        "symbol": symbol,
+        "price": price,
+        "details": details,
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+    
+    try:
+        requests.post(WEBHOOK_URL, json=payload, timeout=5)
+        logger.info(f"Webhook notification sent for {action}")
+    except Exception as e:
+        logger.error(f"Failed to send webhook notification: {e}")
+
+
 def run_paper_trade():
     """Main paper trading logic executed every 4 hours."""
     state = load_state()
@@ -179,12 +204,14 @@ def run_paper_trade():
             state["balance"] += pnl_trade
             close_reason = reason if reason else f"REVERSAL→{signal}"
             action = f"CLOSE_{state['position']['type']}({close_reason})"
-            logger.info(
+            log_msg = (
                 f"Closing {state['position']['type']} position | "
-                f"Entry: ${entry_price:,.2f} → Exit: ${price:,.2f} | "
+                f"Entry: ${entry_price:,.4f} → Exit: ${price:,.4f} | "
                 f"PnL: ${pnl_trade:,.2f} ({pnl_pct*100:.2f}%) | "
                 f"Reason: {close_reason}"
             )
+            logger.info(log_msg)
+            send_webhook_notification("CLOSE_POSITION", "RONINUSDT", price, log_msg)
             state["position"] = None
 
     # 4. Open new position if no position and signal is strong enough
@@ -199,10 +226,12 @@ def run_paper_trade():
         position_type = signal
         entry_price = price
         position_size = pos_size
-        logger.info(
-            f"Opening {signal} position | Entry: ${price:,.2f} | "
+        log_msg = (
+            f"Opening {signal} position | Entry: ${price:,.4f} | "
             f"Size: ${pos_size:,.2f} | Balance: ${state['balance']:,.2f}"
         )
+        logger.info(log_msg)
+        send_webhook_notification("OPEN_POSITION", "RONINUSDT", price, log_msg)
     elif state["position"] is None and confidence < CONFIDENCE_THRESHOLD:
         action = "SKIP_LOW_CONFIDENCE"
         logger.info(f"Signal {signal} at {confidence:.1f}% below threshold {CONFIDENCE_THRESHOLD}%. Skipping.")
