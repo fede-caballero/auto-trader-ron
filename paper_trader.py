@@ -12,6 +12,7 @@ import os
 import sys
 import csv
 import json
+import logging
 import requests
 from dotenv import load_dotenv
 from datetime import datetime, timezone
